@@ -99,5 +99,5 @@ AUTO_REMINDER_OVERDUE_DAYS=3
 หลัง deploy ให้ตั้งค่า Webhook URL ใน LINE Developers:
 
 ```text
-https://YOUR_NETLIFY_SITE.netlify.app/api/line-webhook
+https://pmcinvoice.netlify.app/api/line-webhook
 ```
