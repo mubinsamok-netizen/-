@@ -37,7 +37,6 @@ Tabs ที่ระบบใช้:
 
 ```text
 GOOGLE_SHEET_ID=1dLYIxFRVvbpv-GL-2Yr6wHBc_QHvYoLbM7oAi781OqY
-ADMIN_PASSWORD=ตั้งรหัสผ่านสำหรับฝ่ายบัญชี
 GOOGLE_SERVICE_ACCOUNT_EMAIL=pmc-connext@pcm-connext-login.iam.gserviceaccount.com
 GOOGLE_PRIVATE_KEY=ใส่ private key จาก service account โดยคง \n ตามต้นฉบับ
 GOOGLE_BILLINGS_TAB=วางบิล
@@ -51,8 +50,6 @@ AUTO_REMINDER_OVERDUE_DAYS=3
 ```
 
 ถ้าใช้ `GOOGLE_SERVICE_ACCOUNT_JSON` แทนการแยก email/private key ก็ได้ แต่ต้องเก็บใน Netlify Environment Variables เท่านั้น
-
-`ADMIN_PASSWORD` คือรหัสผ่านเข้าใช้งานหน้าเว็บสำหรับฝ่ายบัญชี และใช้ป้องกัน API ฝั่งจัดการบิล/ลูกค้า ห้ามตั้งเป็นรหัสเดาง่าย
 
 ตั้ง `ENABLE_TEST_LINE_FLEX=TRUE` เฉพาะตอนต้องการทดสอบ endpoint `/api/test-line-flex` เท่านั้น หลังทดสอบเสร็จควรกลับเป็น `FALSE`
 

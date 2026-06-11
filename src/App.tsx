@@ -3,20 +3,18 @@ import {
   CheckCircle2,
   FileText,
   LineChart,
-  LockKeyhole,
   Loader2,
-  LogOut,
   MessageCircle,
   Plus,
   RefreshCw,
   Save,
   Search
 } from "lucide-react";
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { FlexPreview } from "./components/FlexPreview";
 import { StatusBadge } from "./components/StatusBadge";
 import { sampleBillings, sampleCustomers } from "./data/sampleData";
-import { ApiError, api, clearStoredAdminPassword, getStoredAdminPassword, setStoredAdminPassword } from "./lib/api";
+import { api } from "./lib/api";
 import { createId, formatBaht, formatDate, getDueTone, statuses } from "./lib/format";
 import type { Billing, BillingAction, BillingStatus, Customer } from "./types";
 
@@ -60,10 +58,7 @@ export default function App() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<BillingStatus | "ทั้งหมด">("ทั้งหมด");
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("list");
-  const [isUnlocked, setIsUnlocked] = useState(() => Boolean(getStoredAdminPassword()));
-  const [loginPassword, setLoginPassword] = useState("");
-  const [loginError, setLoginError] = useState("");
-  const [notice, setNotice] = useState("เข้าสู่ระบบแล้ว ระบบจะเชื่อม Google Sheets ผ่าน Netlify Functions");
+  const [notice, setNotice] = useState("กำลังใช้ข้อมูลตัวอย่าง หากเปิดผ่าน Netlify Dev และตั้งค่า env แล้ว ระบบจะเชื่อม Google Sheets อัตโนมัติ");
   const [busy, setBusy] = useState(false);
 
   async function loadData() {
@@ -78,29 +73,16 @@ export default function App() {
       setBillingDraft(nextBillings[0] ?? createBlankBilling(nextCustomers[0]));
       setCustomerDraft(nextCustomers[0] ?? blankCustomer);
       setNotice("เชื่อมต่อ Google Sheets แล้ว ข้อมูลบนหน้านี้มาจากฐานข้อมูลจริง");
-      return true;
-    } catch (err) {
-      if (err instanceof ApiError) {
-        if (err.status === 401) {
-          clearStoredAdminPassword();
-          setIsUnlocked(false);
-          setNotice("กรุณาเข้าสู่ระบบใหม่");
-        } else {
-          setNotice(err.message);
-        }
-        return false;
-      }
-
+    } catch {
       setNotice("ยังไม่ได้เชื่อม API หรือ env ไม่ครบ จึงแสดงข้อมูลตัวอย่างให้ทดลอง workflow ก่อน");
-      return true;
     } finally {
       setBusy(false);
     }
   }
 
   useEffect(() => {
-    if (isUnlocked) void loadData();
-  }, [isUnlocked]);
+    void loadData();
+  }, []);
 
   const selectedBilling = useMemo(
     () => billings.find((billing) => billing.id === selectedBillingId) ?? billingDraft,
@@ -159,47 +141,6 @@ export default function App() {
     }));
   }
 
-  async function login(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const password = loginPassword.trim();
-    if (!password) {
-      setLoginError("กรุณากรอกรหัสผ่าน");
-      return;
-    }
-
-    setLoginError("");
-    setStoredAdminPassword(password);
-    const ok = await loadData();
-    if (ok) {
-      setIsUnlocked(true);
-      setLoginPassword("");
-      return;
-    }
-
-    clearStoredAdminPassword();
-    setLoginError("รหัสผ่านไม่ถูกต้อง หรือยังตั้งค่า ADMIN_PASSWORD ไม่ครบ");
-  }
-
-  function logout() {
-    clearStoredAdminPassword();
-    setIsUnlocked(false);
-    setLoginPassword("");
-    setNotice("ออกจากระบบแล้ว");
-  }
-
-  function handleApiError(err: unknown) {
-    if (!(err instanceof ApiError)) return false;
-
-    if (err.status === 401) {
-      logout();
-      setNotice("หมดสิทธิ์เข้าใช้งาน กรุณาเข้าสู่ระบบใหม่");
-      return true;
-    }
-
-    setNotice(err.message);
-    return true;
-  }
-
   async function saveBilling() {
     const nextBilling = {
       ...billingDraft,
@@ -210,8 +151,7 @@ export default function App() {
       const result = await api.saveBilling(nextBilling);
       upsertLocalBilling(result.billing);
       setNotice("บันทึกรายการวางบิลลง Google Sheets แล้ว");
-    } catch (err) {
-      if (handleApiError(err)) return;
+    } catch {
       upsertLocalBilling(nextBilling);
       setNotice("บันทึกในหน้าจอทดลองแล้ว เมื่อเชื่อม env ครบจะบันทึกลง Google Sheets จริง");
     } finally {
@@ -229,8 +169,7 @@ export default function App() {
       const result = await api.saveCustomer(nextCustomer);
       upsertLocalCustomer(result.customer);
       setNotice("บันทึกข้อมูลลูกค้าลง Google Sheets แล้ว");
-    } catch (err) {
-      if (handleApiError(err)) return;
+    } catch {
       upsertLocalCustomer(nextCustomer);
       setNotice("บันทึกข้อมูลลูกค้าในหน้าจอทดลองแล้ว");
     } finally {
@@ -261,8 +200,7 @@ export default function App() {
       const result = await api.runBillingAction(selectedBilling.id, action);
       upsertLocalBilling(result.billing);
       setNotice(result.message ?? "ทำรายการสำเร็จ");
-    } catch (err) {
-      if (handleApiError(err)) return;
+    } catch {
       const nextStatus: BillingStatus =
         action === "paid" ? "ชำระแล้ว" : action === "reminder" ? "เตือนแล้ว" : "รอชำระ";
       const nextBilling: Billing = {
@@ -279,37 +217,6 @@ export default function App() {
     }
   }
 
-  if (!isUnlocked) {
-    return (
-      <main className="login-shell">
-        <form className="login-card" onSubmit={login}>
-          <div className="login-card__icon">
-            <LockKeyhole size={24} />
-          </div>
-          <div>
-            <h1>ระบบวางบิลลูกค้า</h1>
-            <p>เข้าสู่ระบบสำหรับฝ่ายบัญชี PMC CONNEXT</p>
-          </div>
-          <label>
-            รหัสผ่าน
-            <input
-              type="password"
-              value={loginPassword}
-              onChange={(event) => setLoginPassword(event.target.value)}
-              placeholder="กรอกรหัสผ่าน"
-              autoComplete="current-password"
-            />
-          </label>
-          {loginError && <p className="login-card__error">{loginError}</p>}
-          <button className="button primary" type="submit" disabled={busy}>
-            {busy ? <Loader2 className="spin" size={18} /> : <LockKeyhole size={18} />}
-            เข้าสู่ระบบ
-          </button>
-        </form>
-      </main>
-    );
-  }
-
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -317,16 +224,10 @@ export default function App() {
           <h1>ระบบวางบิลลูกค้า</h1>
           <p>จัดการรายการวางบิล ส่ง LINE และติดตามสถานะชำระเงินจากหน้าจอเดียว</p>
         </div>
-        <div className="topbar-actions">
-          <button className="button ghost" type="button" onClick={loadData} disabled={busy}>
-            {busy ? <Loader2 className="spin" size={18} /> : <RefreshCw size={18} />}
-            รีเฟรชข้อมูล
-          </button>
-          <button className="button ghost" type="button" onClick={logout}>
-            <LogOut size={18} />
-            ออกจากระบบ
-          </button>
-        </div>
+        <button className="button ghost" type="button" onClick={loadData} disabled={busy}>
+          {busy ? <Loader2 className="spin" size={18} /> : <RefreshCw size={18} />}
+          รีเฟรชข้อมูล
+        </button>
       </header>
 
       <section className="notice" aria-live="polite">

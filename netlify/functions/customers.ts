@@ -1,14 +1,10 @@
 import type { Config, Context } from "@netlify/functions";
-import { requireAdmin } from "./_shared/auth";
 import { error, json, readJson } from "./_shared/http";
 import { listCustomers, saveCustomer } from "./_shared/googleSheets";
 import type { Customer } from "./_shared/types";
 
 export default async (req: Request, _context: Context) => {
   try {
-    const authError = requireAdmin(req);
-    if (authError) return authError;
-
     if (req.method === "GET") {
       const customers = await listCustomers();
       return json({ customers });

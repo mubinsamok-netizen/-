@@ -1,5 +1,4 @@
 import type { Config, Context } from "@netlify/functions";
-import { requireAdmin } from "./_shared/auth";
 import { getBilling, saveBilling } from "./_shared/googleSheets";
 import { error, json, readJson } from "./_shared/http";
 import { pushBillingMessage } from "./_shared/line";
@@ -7,9 +6,6 @@ import type { BillingAction } from "./_shared/types";
 
 export default async (req: Request, context: Context) => {
   try {
-    const authError = requireAdmin(req);
-    if (authError) return authError;
-
     if (req.method !== "POST") return error("Method not allowed", 405);
     const id = context.params.id;
     const { action } = await readJson<{ action: BillingAction }>(req);

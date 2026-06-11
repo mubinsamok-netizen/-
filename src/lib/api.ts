@@ -1,46 +1,17 @@
 import type { Billing, BillingAction, Customer } from "../types";
 
-const ADMIN_PASSWORD_KEY = "billing_admin_password";
-
-export class ApiError extends Error {
-  constructor(message: string, readonly status: number) {
-    super(message);
-  }
-}
-
-export function getStoredAdminPassword() {
-  return window.sessionStorage.getItem(ADMIN_PASSWORD_KEY) || "";
-}
-
-export function setStoredAdminPassword(password: string) {
-  window.sessionStorage.setItem(ADMIN_PASSWORD_KEY, password);
-}
-
-export function clearStoredAdminPassword() {
-  window.sessionStorage.removeItem(ADMIN_PASSWORD_KEY);
-}
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const password = getStoredAdminPassword();
   const response = await fetch(path, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      ...(password ? { "X-Admin-Password": password } : {}),
       ...(init?.headers ?? {})
     }
   });
 
   if (!response.ok) {
     const body = await response.text();
-    let message = body || `API error ${response.status}`;
-    try {
-      const parsed = JSON.parse(body) as { error?: string };
-      message = parsed.error || message;
-    } catch {
-      // Keep the raw response text when the backend returns non-JSON.
-    }
-    throw new ApiError(message, response.status);
+    throw new Error(body || `API error ${response.status}`);
   }
 
   return response.json() as Promise<T>;

@@ -1,5 +1,4 @@
 import type { Config, Context } from "@netlify/functions";
-import { requireAdmin } from "./_shared/auth";
 import { error, json } from "./_shared/http";
 import { pushBillingMessage } from "./_shared/line";
 import type { Billing } from "./_shared/types";
@@ -7,9 +6,6 @@ import type { Billing } from "./_shared/types";
 export default async (req: Request, _context: Context) => {
   try {
     if (req.method !== "POST") return error("Method not allowed", 405);
-
-    const authError = requireAdmin(req);
-    if (authError) return authError;
 
     if (Netlify.env.get("ENABLE_TEST_LINE_FLEX") !== "TRUE") {
       return error("ปิด endpoint ทดสอบ LINE อยู่ ตั้งค่า ENABLE_TEST_LINE_FLEX=TRUE เมื่อต้องการทดสอบ", 403);
