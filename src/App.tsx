@@ -1,0 +1,639 @@
+import {
+  Bell,
+  CheckCircle2,
+  FileText,
+  LineChart,
+  LockKeyhole,
+  Loader2,
+  LogOut,
+  MessageCircle,
+  Plus,
+  RefreshCw,
+  Save,
+  Search
+} from "lucide-react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { FlexPreview } from "./components/FlexPreview";
+import { StatusBadge } from "./components/StatusBadge";
+import { sampleBillings, sampleCustomers } from "./data/sampleData";
+import { ApiError, api, clearStoredAdminPassword, getStoredAdminPassword, setStoredAdminPassword } from "./lib/api";
+import { createId, formatBaht, formatDate, getDueTone, statuses } from "./lib/format";
+import type { Billing, BillingAction, BillingStatus, Customer } from "./types";
+
+type WorkspaceTab = "list" | "billing" | "customer" | "preview";
+
+const blankCustomer: Customer = {
+  id: "",
+  name: "",
+  contactName: "",
+  lineUserId: "",
+  phone: "",
+  email: "",
+  note: "",
+  status: "ใช้งาน"
+};
+
+function createBlankBilling(customer?: Customer): Billing {
+  return {
+    id: "",
+    customerId: customer?.id ?? "",
+    customerName: customer?.name ?? "",
+    contactName: customer?.contactName ?? "",
+    lineUserId: customer?.lineUserId ?? "",
+    amount: 0,
+    dueDate: new Date().toISOString().slice(0, 10),
+    pdfUrl: "",
+    status: "รอส่ง",
+    reminderCount: 0,
+    customerComment: "",
+    customerCommentAt: "",
+    note: ""
+  };
+}
+
+export default function App() {
+  const [billings, setBillings] = useState<Billing[]>(sampleBillings);
+  const [customers, setCustomers] = useState<Customer[]>(sampleCustomers);
+  const [selectedBillingId, setSelectedBillingId] = useState(sampleBillings[0]?.id ?? "");
+  const [billingDraft, setBillingDraft] = useState<Billing>(sampleBillings[0]);
+  const [customerDraft, setCustomerDraft] = useState<Customer>(sampleCustomers[0]);
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<BillingStatus | "ทั้งหมด">("ทั้งหมด");
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>("list");
+  const [isUnlocked, setIsUnlocked] = useState(() => Boolean(getStoredAdminPassword()));
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState("");
+  const [notice, setNotice] = useState("เข้าสู่ระบบแล้ว ระบบจะเชื่อม Google Sheets ผ่าน Netlify Functions");
+  const [busy, setBusy] = useState(false);
+
+  async function loadData() {
+    setBusy(true);
+    try {
+      const [billingResult, customerResult] = await Promise.all([api.getBillings(), api.getCustomers()]);
+      const nextBillings = billingResult.billings.length ? billingResult.billings : sampleBillings;
+      const nextCustomers = customerResult.customers.length ? customerResult.customers : sampleCustomers;
+      setBillings(nextBillings);
+      setCustomers(nextCustomers);
+      setSelectedBillingId(nextBillings[0]?.id ?? "");
+      setBillingDraft(nextBillings[0] ?? createBlankBilling(nextCustomers[0]));
+      setCustomerDraft(nextCustomers[0] ?? blankCustomer);
+      setNotice("เชื่อมต่อ Google Sheets แล้ว ข้อมูลบนหน้านี้มาจากฐานข้อมูลจริง");
+      return true;
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          clearStoredAdminPassword();
+          setIsUnlocked(false);
+          setNotice("กรุณาเข้าสู่ระบบใหม่");
+        } else {
+          setNotice(err.message);
+        }
+        return false;
+      }
+
+      setNotice("ยังไม่ได้เชื่อม API หรือ env ไม่ครบ จึงแสดงข้อมูลตัวอย่างให้ทดลอง workflow ก่อน");
+      return true;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    if (isUnlocked) void loadData();
+  }, [isUnlocked]);
+
+  const selectedBilling = useMemo(
+    () => billings.find((billing) => billing.id === selectedBillingId) ?? billingDraft,
+    [billings, billingDraft, selectedBillingId]
+  );
+
+  const filteredBillings = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return billings.filter((billing) => {
+      const matchStatus = statusFilter === "ทั้งหมด" || billing.status === statusFilter;
+      const matchQuery =
+        !normalizedQuery ||
+        [billing.id, billing.customerName, billing.contactName, billing.note, billing.customerComment]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedQuery);
+      return matchStatus && matchQuery;
+    });
+  }, [billings, query, statusFilter]);
+
+  const summary = useMemo(
+    () => ({
+      รอส่ง: billings.filter((item) => item.status === "รอส่ง").length,
+      รอชำระ: billings.filter((item) => item.status === "รอชำระ" || item.status === "ส่งแล้ว").length,
+      เตือนแล้ว: billings.filter((item) => item.status === "เตือนแล้ว").length,
+      ชำระแล้ว: billings.filter((item) => item.status === "ชำระแล้ว").length
+    }),
+    [billings]
+  );
+
+  useEffect(() => {
+    if (!filteredBillings.length) return;
+    const selectedStillVisible = filteredBillings.some((billing) => billing.id === selectedBillingId);
+    if (!selectedStillVisible) {
+      selectBilling(filteredBillings[0]);
+    }
+  }, [filteredBillings, selectedBillingId]);
+
+  function selectBilling(billing: Billing) {
+    setSelectedBillingId(billing.id);
+    setBillingDraft(billing);
+    const customer = customers.find((item) => item.id === billing.customerId);
+    if (customer) setCustomerDraft(customer);
+  }
+
+  function applyCustomerToBilling(customerId: string) {
+    const customer = customers.find((item) => item.id === customerId);
+    if (!customer) return;
+    setCustomerDraft(customer);
+    setBillingDraft((draft) => ({
+      ...draft,
+      customerId: customer.id,
+      customerName: customer.name,
+      contactName: customer.contactName,
+      lineUserId: customer.lineUserId
+    }));
+  }
+
+  async function login(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const password = loginPassword.trim();
+    if (!password) {
+      setLoginError("กรุณากรอกรหัสผ่าน");
+      return;
+    }
+
+    setLoginError("");
+    setStoredAdminPassword(password);
+    const ok = await loadData();
+    if (ok) {
+      setIsUnlocked(true);
+      setLoginPassword("");
+      return;
+    }
+
+    clearStoredAdminPassword();
+    setLoginError("รหัสผ่านไม่ถูกต้อง หรือยังตั้งค่า ADMIN_PASSWORD ไม่ครบ");
+  }
+
+  function logout() {
+    clearStoredAdminPassword();
+    setIsUnlocked(false);
+    setLoginPassword("");
+    setNotice("ออกจากระบบแล้ว");
+  }
+
+  function handleApiError(err: unknown) {
+    if (!(err instanceof ApiError)) return false;
+
+    if (err.status === 401) {
+      logout();
+      setNotice("หมดสิทธิ์เข้าใช้งาน กรุณาเข้าสู่ระบบใหม่");
+      return true;
+    }
+
+    setNotice(err.message);
+    return true;
+  }
+
+  async function saveBilling() {
+    const nextBilling = {
+      ...billingDraft,
+      id: billingDraft.id || createId("BILL")
+    };
+    setBusy(true);
+    try {
+      const result = await api.saveBilling(nextBilling);
+      upsertLocalBilling(result.billing);
+      setNotice("บันทึกรายการวางบิลลง Google Sheets แล้ว");
+    } catch (err) {
+      if (handleApiError(err)) return;
+      upsertLocalBilling(nextBilling);
+      setNotice("บันทึกในหน้าจอทดลองแล้ว เมื่อเชื่อม env ครบจะบันทึกลง Google Sheets จริง");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function saveCustomer() {
+    const nextCustomer = {
+      ...customerDraft,
+      id: customerDraft.id || createId("CUS")
+    };
+    setBusy(true);
+    try {
+      const result = await api.saveCustomer(nextCustomer);
+      upsertLocalCustomer(result.customer);
+      setNotice("บันทึกข้อมูลลูกค้าลง Google Sheets แล้ว");
+    } catch (err) {
+      if (handleApiError(err)) return;
+      upsertLocalCustomer(nextCustomer);
+      setNotice("บันทึกข้อมูลลูกค้าในหน้าจอทดลองแล้ว");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function upsertLocalBilling(nextBilling: Billing) {
+    setBillings((items) => {
+      const exists = items.some((item) => item.id === nextBilling.id);
+      return exists ? items.map((item) => (item.id === nextBilling.id ? nextBilling : item)) : [nextBilling, ...items];
+    });
+    setSelectedBillingId(nextBilling.id);
+    setBillingDraft(nextBilling);
+  }
+
+  function upsertLocalCustomer(nextCustomer: Customer) {
+    setCustomers((items) => {
+      const exists = items.some((item) => item.id === nextCustomer.id);
+      return exists ? items.map((item) => (item.id === nextCustomer.id ? nextCustomer : item)) : [nextCustomer, ...items];
+    });
+  }
+
+  async function runAction(action: BillingAction) {
+    if (!selectedBilling.id && action !== "paid") return;
+    setBusy(true);
+    try {
+      const result = await api.runBillingAction(selectedBilling.id, action);
+      upsertLocalBilling(result.billing);
+      setNotice(result.message ?? "ทำรายการสำเร็จ");
+    } catch (err) {
+      if (handleApiError(err)) return;
+      const nextStatus: BillingStatus =
+        action === "paid" ? "ชำระแล้ว" : action === "reminder" ? "เตือนแล้ว" : "รอชำระ";
+      const nextBilling: Billing = {
+        ...selectedBilling,
+        status: nextStatus,
+        lastSentAt: action === "paid" ? selectedBilling.lastSentAt : new Date().toISOString(),
+        paidAt: action === "paid" ? new Date().toISOString() : selectedBilling.paidAt,
+        reminderCount: action === "reminder" ? selectedBilling.reminderCount + 1 : selectedBilling.reminderCount
+      };
+      upsertLocalBilling(nextBilling);
+      setNotice("อัปเดตสถานะในหน้าจอทดลองแล้ว API จะส่ง LINE จริงเมื่อเปิดผ่าน Netlify และตั้งค่า env ครบ");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!isUnlocked) {
+    return (
+      <main className="login-shell">
+        <form className="login-card" onSubmit={login}>
+          <div className="login-card__icon">
+            <LockKeyhole size={24} />
+          </div>
+          <div>
+            <h1>ระบบวางบิลลูกค้า</h1>
+            <p>เข้าสู่ระบบสำหรับฝ่ายบัญชี PMC CONNEXT</p>
+          </div>
+          <label>
+            รหัสผ่าน
+            <input
+              type="password"
+              value={loginPassword}
+              onChange={(event) => setLoginPassword(event.target.value)}
+              placeholder="กรอกรหัสผ่าน"
+              autoComplete="current-password"
+            />
+          </label>
+          {loginError && <p className="login-card__error">{loginError}</p>}
+          <button className="button primary" type="submit" disabled={busy}>
+            {busy ? <Loader2 className="spin" size={18} /> : <LockKeyhole size={18} />}
+            เข้าสู่ระบบ
+          </button>
+        </form>
+      </main>
+    );
+  }
+
+  return (
+    <main className="app-shell">
+      <header className="topbar">
+        <div>
+          <h1>ระบบวางบิลลูกค้า</h1>
+          <p>จัดการรายการวางบิล ส่ง LINE และติดตามสถานะชำระเงินจากหน้าจอเดียว</p>
+        </div>
+        <div className="topbar-actions">
+          <button className="button ghost" type="button" onClick={loadData} disabled={busy}>
+            {busy ? <Loader2 className="spin" size={18} /> : <RefreshCw size={18} />}
+            รีเฟรชข้อมูล
+          </button>
+          <button className="button ghost" type="button" onClick={logout}>
+            <LogOut size={18} />
+            ออกจากระบบ
+          </button>
+        </div>
+      </header>
+
+      <section className="notice" aria-live="polite">
+        {notice}
+      </section>
+
+      <section className="summary-grid" aria-label="สรุปสถานะ">
+        <SummaryCard icon={<FileText size={20} />} label="รอส่ง" value={summary["รอส่ง"]} tone="mint" />
+        <SummaryCard icon={<LineChart size={20} />} label="รอชำระ" value={summary["รอชำระ"]} tone="blue" />
+        <SummaryCard icon={<Bell size={20} />} label="เตือนแล้ว" value={summary["เตือนแล้ว"]} tone="amber" />
+        <SummaryCard icon={<CheckCircle2 size={20} />} label="ชำระแล้ว" value={summary["ชำระแล้ว"]} tone="green" />
+      </section>
+
+      <section className="workspace-tabs" role="tablist" aria-label="เมนูพื้นที่ทำงาน">
+        <button className={activeTab === "list" ? "active" : ""} type="button" onClick={() => setActiveTab("list")}>
+          รายการวางบิล
+        </button>
+        <button className={activeTab === "billing" ? "active" : ""} type="button" onClick={() => setActiveTab("billing")}>
+          รายละเอียดบิล
+        </button>
+        <button className={activeTab === "customer" ? "active" : ""} type="button" onClick={() => setActiveTab("customer")}>
+          ข้อมูลลูกค้า
+        </button>
+        <button className={activeTab === "preview" ? "active" : ""} type="button" onClick={() => setActiveTab("preview")}>
+          ตัวอย่าง LINE
+        </button>
+      </section>
+
+      <section className="workspace">
+        {activeTab === "list" && (
+          <div className="table-panel">
+            <div className="panel-toolbar">
+              <div>
+                <h2>รายการวางบิล</h2>
+                <p>{filteredBillings.length} รายการที่ตรงเงื่อนไข</p>
+              </div>
+              <button
+                className="button primary"
+                type="button"
+                onClick={() => {
+                  setBillingDraft(createBlankBilling(customers[0]));
+                  setActiveTab("billing");
+                }}
+              >
+                <Plus size={18} />
+                เพิ่มรายการ
+              </button>
+            </div>
+
+            <div className="filters">
+              <label className="searchbox">
+                <Search size={18} />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="ค้นหาชื่อลูกค้า เลขที่บิล หรือหมายเหตุ"
+                />
+              </label>
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as BillingStatus | "ทั้งหมด")}>
+                <option value="ทั้งหมด">ทุกสถานะ</option>
+                {statuses.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>เลขที่</th>
+                    <th>ลูกค้า</th>
+                    <th>ยอดชำระ</th>
+                    <th>ครบกำหนด</th>
+                    <th>สถานะ</th>
+                    <th>ส่งล่าสุด</th>
+                    <th>เอกสาร</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredBillings.map((billing) => (
+                    <tr
+                      key={billing.id}
+                      className={billing.id === selectedBilling.id ? "selected-row" : ""}
+                      onClick={() => {
+                        selectBilling(billing);
+                        setActiveTab("billing");
+                      }}
+                    >
+                      <td data-label="เลขที่">{billing.id}</td>
+                      <td data-label="ลูกค้า">
+                        <strong>{billing.customerName}</strong>
+                        <span>{billing.contactName}</span>
+                      </td>
+                      <td data-label="ยอดชำระ">{formatBaht(billing.amount)}</td>
+                      <td data-label="ครบกำหนด" data-tone={getDueTone(billing.dueDate, billing.status)}>
+                        {formatDate(billing.dueDate)}
+                      </td>
+                      <td data-label="สถานะ">
+                        <StatusBadge status={billing.status} />
+                      </td>
+                      <td data-label="ส่งล่าสุด">{formatDate(billing.lastSentAt)}</td>
+                      <td data-label="เอกสาร">
+                        <a href={billing.pdfUrl} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
+                          เปิด PDF
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === "billing" && (
+          <aside className="side-panel detail-grid">
+            <BillingForm
+              billing={billingDraft}
+              customers={customers}
+              onChange={setBillingDraft}
+              onCustomerChange={applyCustomerToBilling}
+              onSave={saveBilling}
+            />
+            <div>
+              <div className="action-bar" aria-label="คำสั่งรายการวางบิล">
+                <button className="button primary" type="button" onClick={() => runAction("invoice")} disabled={busy}>
+                  <MessageCircle size={18} />
+                  ส่ง LINE
+                </button>
+                <button className="button soft" type="button" onClick={() => runAction("reminder")} disabled={busy}>
+                  <Bell size={18} />
+                  เตือนชำระ
+                </button>
+                <button className="button success" type="button" onClick={() => runAction("paid")} disabled={busy}>
+                  <CheckCircle2 size={18} />
+                  ชำระแล้ว
+                </button>
+              </div>
+              <FlexPreview billing={selectedBilling} />
+            </div>
+          </aside>
+        )}
+
+        {activeTab === "customer" && (
+          <aside className="side-panel form-panel">
+            <CustomerForm customer={customerDraft} onChange={setCustomerDraft} onSave={saveCustomer} />
+          </aside>
+        )}
+
+        {activeTab === "preview" && (
+          <aside className="side-panel preview-panel">
+            <FlexPreview billing={selectedBilling} />
+          </aside>
+        )}
+      </section>
+    </main>
+  );
+}
+
+function SummaryCard({
+  icon,
+  label,
+  value,
+  tone
+}: {
+  icon: ReactNode;
+  label: string;
+  value: number;
+  tone: "mint" | "blue" | "amber" | "green";
+}) {
+  return (
+    <article className={`summary-card ${tone}`}>
+      <div className="summary-card__icon">{icon}</div>
+      <div>
+        <p>{label}</p>
+        <strong>{value}</strong>
+      </div>
+    </article>
+  );
+}
+
+function BillingForm({
+  billing,
+  customers,
+  onChange,
+  onCustomerChange,
+  onSave
+}: {
+  billing: Billing;
+  customers: Customer[];
+  onChange: (billing: Billing) => void;
+  onCustomerChange: (customerId: string) => void;
+  onSave: () => void;
+}) {
+  return (
+    <form className="form-stack" onSubmit={(event) => event.preventDefault()}>
+      <div className="form-heading">
+        <h2>รายละเอียดวางบิล</h2>
+        <button className="button primary" type="button" onClick={onSave}>
+          <Save size={18} />
+          บันทึก
+        </button>
+      </div>
+      <label>
+        ลูกค้า
+        <select value={billing.customerId} onChange={(event) => onCustomerChange(event.target.value)}>
+          <option value="">เลือกลูกค้า</option>
+          {customers.map((customer) => (
+            <option key={customer.id} value={customer.id}>
+              {customer.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="two-columns">
+        <label>
+          ยอดเงิน
+          <input
+            type="number"
+            min="0"
+            value={billing.amount}
+            onChange={(event) => onChange({ ...billing, amount: Number(event.target.value) })}
+          />
+        </label>
+        <label>
+          วันครบกำหนด
+          <input type="date" value={billing.dueDate} onChange={(event) => onChange({ ...billing, dueDate: event.target.value })} />
+        </label>
+      </div>
+      <label>
+        ลิงก์เอกสาร PDF
+        <input value={billing.pdfUrl} onChange={(event) => onChange({ ...billing, pdfUrl: event.target.value })} />
+      </label>
+      <label>
+        สถานะ
+        <select value={billing.status} onChange={(event) => onChange({ ...billing, status: event.target.value as BillingStatus })}>
+          {statuses.map((status) => (
+            <option key={status} value={status}>
+              {status}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        ข้อความจากลูกค้า
+        <textarea
+          value={billing.customerComment ?? ""}
+          onChange={(event) => onChange({ ...billing, customerComment: event.target.value })}
+          rows={3}
+          placeholder="ข้อความจาก LINE webhook จะแสดงตรงนี้"
+        />
+      </label>
+      <label>
+        หมายเหตุ
+        <textarea value={billing.note} onChange={(event) => onChange({ ...billing, note: event.target.value })} rows={3} />
+      </label>
+    </form>
+  );
+}
+
+function CustomerForm({
+  customer,
+  onChange,
+  onSave
+}: {
+  customer: Customer;
+  onChange: (customer: Customer) => void;
+  onSave: () => void;
+}) {
+  return (
+    <form className="form-stack" onSubmit={(event) => event.preventDefault()}>
+      <div className="form-heading">
+        <h2>ข้อมูลลูกค้า</h2>
+        <button className="button primary" type="button" onClick={onSave}>
+          <Save size={18} />
+          บันทึก
+        </button>
+      </div>
+      <label>
+        ชื่อลูกค้า
+        <input value={customer.name} onChange={(event) => onChange({ ...customer, name: event.target.value })} />
+      </label>
+      <label>
+        ผู้ติดต่อ
+        <input value={customer.contactName} onChange={(event) => onChange({ ...customer, contactName: event.target.value })} />
+      </label>
+      <label>
+        LINE userId / groupId
+        <input value={customer.lineUserId} onChange={(event) => onChange({ ...customer, lineUserId: event.target.value })} />
+      </label>
+      <div className="two-columns">
+        <label>
+          โทรศัพท์
+          <input value={customer.phone} onChange={(event) => onChange({ ...customer, phone: event.target.value })} />
+        </label>
+        <label>
+          อีเมล
+          <input value={customer.email} onChange={(event) => onChange({ ...customer, email: event.target.value })} />
+        </label>
+      </div>
+      <label>
+        หมายเหตุ
+        <textarea value={customer.note} onChange={(event) => onChange({ ...customer, note: event.target.value })} rows={3} />
+      </label>
+    </form>
+  );
+}
