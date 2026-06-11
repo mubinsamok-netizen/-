@@ -158,9 +158,11 @@ function createFooterButtons(billing: Billing, kind: MessageKind) {
       style: "secondary",
       height: "sm",
       action: {
-        type: "message",
-        label: "แจ้งชำระเงิน",
-        text: `แจ้งชำระเงิน ${billing.id}`
+        type: "postback",
+        label: "พิมพ์แจ้งชำระเงิน",
+        data: `action=payment&billingId=${billing.id}`,
+        inputOption: "openKeyboard",
+        fillInText: `แจ้งชำระเงิน ${billing.id} `
       }
     },
     {
@@ -168,9 +170,11 @@ function createFooterButtons(billing: Billing, kind: MessageKind) {
       style: "secondary",
       height: "sm",
       action: {
-        type: "message",
-        label: "สอบถาม/แจ้งปัญหา",
-        text: `สอบถามเรื่องบิล ${billing.id}`
+        type: "postback",
+        label: "พิมพ์สอบถาม/แจ้งปัญหา",
+        data: `action=issue&billingId=${billing.id}`,
+        inputOption: "openKeyboard",
+        fillInText: `สอบถามเรื่องบิล ${billing.id} `
       }
     }
   ];
@@ -194,7 +198,7 @@ function getTheme(kind: MessageKind, overdue: boolean): Theme {
       title: "แจ้งใบวางบิล",
       badge: "NEW",
       status: "รอชำระ",
-      note: "เปิดเอกสารเพื่อตรวจสอบรายละเอียดได้เลยค่ะ หากชำระแล้วแจ้งหลักฐานกลับทาง LINE นี้ได้เลยค่ะ หรือหากมีข้อสงสัยสามารถกดสอบถาม/แจ้งปัญหาได้ค่ะ",
+      note: "เปิดเอกสารเพื่อตรวจสอบรายละเอียดได้เลยค่ะ หากต้องการแจ้งชำระเงินหรือสอบถามเพิ่มเติม กดปุ่มด้านล่างเพื่อเปิดช่องพิมพ์ได้ค่ะ",
       cardBg: "#263447",
       amountColor: "#0F8F75",
       heroTone: "invoice"
@@ -206,7 +210,7 @@ function getTheme(kind: MessageKind, overdue: boolean): Theme {
       title: "ติดตามยอดวางบิล",
       badge: "OVERDUE",
       status: "เลยกำหนด",
-      note: "รบกวนตรวจสอบเอกสารอีกครั้งค่ะ หากชำระแล้วแจ้งหลักฐานกลับทาง LINE นี้ได้เลยค่ะ หรือหากมีข้อสงสัยสามารถกดสอบถาม/แจ้งปัญหาได้ค่ะ",
+      note: "รบกวนตรวจสอบเอกสารอีกครั้งค่ะ หากต้องการแจ้งชำระเงินหรือสอบถามเพิ่มเติม กดปุ่มด้านล่างเพื่อเปิดช่องพิมพ์ได้ค่ะ",
       cardBg: "#302C2A",
       amountColor: "#B66512",
       heroTone: "overdue"
@@ -217,7 +221,7 @@ function getTheme(kind: MessageKind, overdue: boolean): Theme {
     title: "เตือนชำระเงิน",
     badge: "REMINDER",
     status: "ใกล้ครบกำหนด",
-    note: "รบกวนตรวจสอบเอกสารด้านล่างค่ะ หากดำเนินการแล้วแจ้งชำระเงินกลับมาได้เลยค่ะ หรือหากมีข้อสงสัยสามารถกดสอบถาม/แจ้งปัญหาได้ค่ะ",
+    note: "รบกวนตรวจสอบเอกสารด้านล่างค่ะ หากต้องการแจ้งชำระเงินหรือสอบถามเพิ่มเติม กดปุ่มด้านล่างเพื่อเปิดช่องพิมพ์ได้ค่ะ",
     cardBg: "#24364B",
     amountColor: "#0F8F75",
     heroTone: "reminder"

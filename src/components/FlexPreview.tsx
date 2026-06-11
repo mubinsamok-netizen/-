@@ -63,11 +63,11 @@ export function FlexPreview({ billing }: { billing: Billing }) {
           <>
             <button type="button" className="secondary">
               <MessageCircle size={16} />
-              แจ้งชำระเงิน
+              พิมพ์แจ้งชำระเงิน
             </button>
             <button type="button" className="secondary">
               <MessageCircle size={16} />
-              สอบถาม/แจ้งปัญหา
+              พิมพ์สอบถาม/แจ้งปัญหา
             </button>
           </>
         )}
@@ -116,7 +116,7 @@ function getPreviewTheme(billing: Billing): PreviewTheme {
       subtitle: "PMC CONNEXT | ใกล้ครบกำหนด",
       badge: "REMINDER",
       status: "ใกล้ครบกำหนด",
-      note: "รบกวนตรวจสอบเอกสารด้านล่างค่ะ หากดำเนินการแล้วแจ้งชำระเงินกลับมาได้เลยค่ะ หรือหากมีข้อสงสัยสามารถกดสอบถาม/แจ้งปัญหาได้ค่ะ",
+      note: "รบกวนตรวจสอบเอกสารด้านล่างค่ะ หากต้องการแจ้งชำระเงินหรือสอบถามเพิ่มเติม กดปุ่มด้านล่างเพื่อเปิดช่องพิมพ์ได้ค่ะ",
       tone: "reminder"
     };
   }
@@ -127,7 +127,7 @@ function getPreviewTheme(billing: Billing): PreviewTheme {
       subtitle: "PMC CONNEXT | เลยกำหนด",
       badge: "OVERDUE",
       status: "เลยกำหนด",
-      note: "รบกวนตรวจสอบเอกสารอีกครั้งค่ะ หากชำระแล้วแจ้งหลักฐานกลับทาง LINE นี้ได้เลยค่ะ หรือหากมีข้อสงสัยสามารถกดสอบถาม/แจ้งปัญหาได้ค่ะ",
+      note: "รบกวนตรวจสอบเอกสารอีกครั้งค่ะ หากต้องการแจ้งชำระเงินหรือสอบถามเพิ่มเติม กดปุ่มด้านล่างเพื่อเปิดช่องพิมพ์ได้ค่ะ",
       tone: "overdue"
     };
   }
@@ -137,7 +137,7 @@ function getPreviewTheme(billing: Billing): PreviewTheme {
     subtitle: "PMC CONNEXT | ฝ่ายบัญชี",
     badge: "NEW",
     status: "รอชำระ",
-    note: "เปิดเอกสารเพื่อตรวจสอบรายละเอียดได้เลยค่ะ หากชำระแล้วแจ้งหลักฐานกลับทาง LINE นี้ได้เลยค่ะ หรือหากมีข้อสงสัยสามารถกดสอบถาม/แจ้งปัญหาได้ค่ะ",
+    note: "เปิดเอกสารเพื่อตรวจสอบรายละเอียดได้เลยค่ะ หากต้องการแจ้งชำระเงินหรือสอบถามเพิ่มเติม กดปุ่มด้านล่างเพื่อเปิดช่องพิมพ์ได้ค่ะ",
     tone: "invoice"
   };
 }
