@@ -1,6 +1,6 @@
 import type { Config, Context } from "@netlify/functions";
 import { error, json, readJson } from "./_shared/http";
-import { listBillings, saveBilling } from "./_shared/googleSheets";
+import { getBilling, listBillings, saveBilling } from "./_shared/googleSheets";
 import type { Billing } from "./_shared/types";
 
 export default async (req: Request, _context: Context) => {
@@ -15,7 +15,12 @@ export default async (req: Request, _context: Context) => {
       if (!billing.id || !billing.customerName) {
         return error("กรุณาระบุเลขที่รายการและชื่อลูกค้า");
       }
-      const saved = await saveBilling(billing);
+      const existing = await getBilling(billing.id);
+      const saved = await saveBilling({
+        ...billing,
+        customerComment: existing?.customerComment ?? billing.customerComment,
+        customerCommentAt: existing?.customerCommentAt ?? billing.customerCommentAt
+      });
       return json({ billing: saved });
     }
 

@@ -474,13 +474,13 @@ function BillingForm({
           ))}
         </select>
       </label>
-      <label>
-        ข้อความจากลูกค้า
+      <label className="readonly-field">
+        ประวัติข้อความจาก LINE
+        <span className="field-help">ระบบบันทึกอัตโนมัติเมื่อลูกค้ากดแจ้งชำระเงิน สอบถาม/แจ้งปัญหา หรือพิมพ์ข้อความที่มีเลขบิล</span>
         <textarea
-          value={billing.customerComment ?? ""}
-          onChange={(event) => onChange({ ...billing, customerComment: event.target.value })}
+          value={billing.customerComment?.trim() ? billing.customerComment : "ยังไม่มีข้อความจากลูกค้าใน LINE"}
+          readOnly
           rows={3}
-          placeholder="ข้อความจาก LINE webhook จะแสดงตรงนี้"
         />
       </label>
       <label>
