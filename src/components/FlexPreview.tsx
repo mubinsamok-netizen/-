@@ -1,4 +1,4 @@
-import { ExternalLink, MessageCircle } from "lucide-react";
+import { CheckCircle2, Clock3, ExternalLink, MessageCircle } from "lucide-react";
 import { formatBaht, formatDate } from "../lib/format";
 import type { Billing } from "../types";
 
@@ -19,6 +19,37 @@ type PreviewTheme = {
 };
 
 export function FlexPreview({ billing }: { billing: Billing }) {
+  const internalState = getInternalState(billing);
+  if (internalState) {
+    return (
+      <section className="internal-status-preview" aria-label="สถานะภายในระบบ">
+        <div className={`internal-status-preview__icon ${internalState.tone}`}>
+          {internalState.tone === "review" ? <Clock3 size={22} /> : <CheckCircle2 size={22} />}
+        </div>
+        <div>
+          <p>สถานะภายในระบบ</p>
+          <h3>{internalState.title}</h3>
+          <span>{billing.customerName}</span>
+        </div>
+        <div className="internal-status-preview__box">
+          <div>
+            <span>ยอดชำระ</span>
+            <strong>{formatBaht(billing.amount)}</strong>
+          </div>
+          <div>
+            <span>ครบกำหนด</span>
+            <b>{formatDate(billing.dueDate)}</b>
+          </div>
+          <div>
+            <span>สถานะ</span>
+            <b>{billing.status}</b>
+          </div>
+        </div>
+        <p className="internal-status-preview__note">{internalState.note}</p>
+      </section>
+    );
+  }
+
   const theme = getPreviewTheme(billing);
   const isPaid = theme.tone === "paid";
 
@@ -76,6 +107,26 @@ export function FlexPreview({ billing }: { billing: Billing }) {
   );
 }
 
+function getInternalState(billing: Billing) {
+  if (billing.status === "รอตรวจสอบการชำระ") {
+    return {
+      title: "รอตรวจสอบการชำระ",
+      note: "ลูกค้าแจ้งชำระเงินกลับมาทาง LINE แล้ว ระบบเก็บไว้ให้ฝ่ายบัญชีตรวจสอบหลักฐานและกดชำระแล้วเองเมื่อเรียบร้อย ไม่ได้ส่งการ์ดนี้เข้ากลุ่มอัตโนมัติ",
+      tone: "review" as const
+    };
+  }
+
+  if (billing.status === "รอส่งมอบงาน") {
+    return {
+      title: "รอประสานงานโครงการ",
+      note: "ลูกค้าสอบถามหรือแจ้งปัญหากลับมาทาง LINE ระบบพักรายการไว้ให้ทีมตรวจสอบก่อน ไม่ได้ส่งการ์ดนี้เข้ากลุ่มอัตโนมัติ",
+      tone: "hold" as const
+    };
+  }
+
+  return null;
+}
+
 function getPreviewTheme(billing: Billing): PreviewTheme {
   if (billing.status === "ชำระแล้ว") {
     return {
@@ -85,28 +136,6 @@ function getPreviewTheme(billing: Billing): PreviewTheme {
       status: "ชำระแล้ว",
       note: "ฝ่ายบัญชีได้รับแจ้งการชำระเงินเรียบร้อยแล้วค่ะ ขอบคุณมากค่ะ",
       tone: "paid"
-    };
-  }
-
-  if (billing.status === "รอตรวจสอบการชำระ") {
-    return {
-      title: "รอตรวจสอบการชำระ",
-      subtitle: "PMC CONNEXT | ฝ่ายบัญชี",
-      badge: "REVIEW",
-      status: "รอตรวจสอบการชำระ",
-      note: "ฝ่ายบัญชีได้รับแจ้งชำระเงินแล้วค่ะ และจะตรวจสอบรายละเอียดให้เรียบร้อยก่อนยืนยันอีกครั้งค่ะ",
-      tone: "paid"
-    };
-  }
-
-  if (billing.status === "รอส่งมอบงาน") {
-    return {
-      title: "รับเรื่องไว้แล้ว",
-      subtitle: "PMC CONNEXT | ประสานงานโครงการ",
-      badge: "HOLD",
-      status: "รอส่งมอบงาน",
-      note: "ฝ่ายบัญชีจะตรวจสอบสถานะงานกับทีมโครงการก่อนค่ะ และจะแจ้งกำหนดวางบิลใหม่เมื่อเรียบร้อยค่ะ",
-      tone: "invoice"
     };
   }
 
