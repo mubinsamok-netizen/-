@@ -505,6 +505,72 @@ td[data-tone="paid"] {
   cursor: default;
 }
 
+.line-history {
+  display: grid;
+  gap: 8px;
+  min-height: 72px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #f7fafb;
+}
+
+.line-history.empty {
+  align-items: center;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.line-history__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.line-history__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.line-history__meta span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.line-history__meta b {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.line-history__bill {
+  justify-self: end;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #edf8fe;
+  color: #1d6d93;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.line-history__item p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #52656b;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .two-columns {
   display: grid;
   grid-template-columns: 1fr 1fr;

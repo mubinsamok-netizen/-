@@ -476,12 +476,8 @@ function BillingForm({
       </label>
       <label className="readonly-field">
         ประวัติข้อความจาก LINE
-        <span className="field-help">ระบบบันทึกอัตโนมัติเมื่อลูกค้ากดแจ้งชำระเงิน สอบถาม/แจ้งปัญหา หรือพิมพ์ข้อความที่มีเลขบิล</span>
-        <textarea
-          value={billing.customerComment?.trim() ? billing.customerComment : "ยังไม่มีข้อความจากลูกค้าใน LINE"}
-          readOnly
-          rows={3}
-        />
+        <span className="field-help">สรุปเฉพาะข้อความที่ลูกค้าส่งกลับมาจาก LINE</span>
+        <LineHistory value={billing.customerComment} />
       </label>
       <label>
         หมายเหตุ
@@ -489,6 +485,54 @@ function BillingForm({
       </label>
     </form>
   );
+}
+
+function LineHistory({ value }: { value?: string }) {
+  const items = parseLineHistory(value);
+
+  if (!items.length) {
+    return <div className="line-history empty">ยังไม่มีข้อความจากลูกค้าใน LINE</div>;
+  }
+
+  return (
+    <div className="line-history">
+      {items.map((item, index) => (
+        <article className="line-history__item" key={`${item.time}-${item.shortBillId}-${index}`}>
+          <div className="line-history__meta">
+            <span>{item.time}</span>
+            <b>{item.label}</b>
+          </div>
+          <span className="line-history__bill">{item.shortBillId}</span>
+          {item.detail && <p>{item.detail}</p>}
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function parseLineHistory(value?: string) {
+  return (value ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const match = line.match(/^\[(.+?)\]\s*(.+)$/);
+      const time = match?.[1] ?? "";
+      const text = match?.[2] ?? line;
+      const billId = text.match(/BILL[-A-Z0-9]+/i)?.[0]?.toUpperCase() ?? "";
+      const shortBillId = billId ? `...${billId.slice(-6)}` : "";
+      const cleanedText = text.replace(/BILL[-A-Z0-9]+/i, "").trim();
+      const label = getLineHistoryLabel(cleanedText);
+      const detail = cleanedText.replace(/^(แจ้งชำระเงิน|สอบถามเรื่องบิล|แจ้งปัญหา)\s*/i, "").trim();
+
+      return { time, label, shortBillId, detail };
+    });
+}
+
+function getLineHistoryLabel(text: string) {
+  if (text.includes("แจ้งชำระเงิน")) return "แจ้งชำระเงิน";
+  if (text.includes("สอบถามเรื่องบิล") || text.includes("แจ้งปัญหา")) return "สอบถาม/แจ้งปัญหา";
+  return "ข้อความลูกค้า";
 }
 
 function CustomerForm({
