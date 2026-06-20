@@ -1,4 +1,5 @@
 import {
+  AlertCircle,
   Bell,
   CheckCircle2,
   FileText,
@@ -8,7 +9,8 @@ import {
   Plus,
   RefreshCw,
   Save,
-  Search
+  Search,
+  X
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { FlexPreview } from "./components/FlexPreview";
@@ -18,6 +20,7 @@ import { createId, formatBaht, formatDate, getDueTone, statuses } from "./lib/fo
 import type { Billing, BillingAction, BillingStatus, Customer } from "./types";
 
 type WorkspaceTab = "list" | "billing" | "customer" | "preview";
+type ToastState = { id: number; message: string; type: "success" | "error" };
 
 const blankCustomer: Customer = {
   id: "",
@@ -61,8 +64,20 @@ export default function App() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState<ToastState | null>(null);
+
+  function showToast(message: string, type: ToastState["type"] = "success") {
+    setToast({ id: Date.now(), message, type });
+  }
+
+  useEffect(() => {
+    if (!toast) return;
+    const timeout = window.setTimeout(() => setToast(null), 4500);
+    return () => window.clearTimeout(timeout);
+  }, [toast]);
 
   async function loadData() {
+    const isRefresh = !initialLoading;
     setBusy(true);
     setLoadError("");
     try {
@@ -75,11 +90,14 @@ export default function App() {
       setSelectedBillingId(nextSelected?.id ?? "");
       setBillingDraft(nextSelected ?? createBlankBilling(nextCustomers[0]));
       setCustomerDraft(nextCustomers[0] ?? blankCustomer);
-      setNotice(nextBillings.length ? "อัปเดตข้อมูลจาก Google Sheets แล้ว" : "เชื่อมต่อ Google Sheets แล้ว ยังไม่มีรายการวางบิล");
+      const message = nextBillings.length ? "อัปเดตข้อมูลจาก Google Sheets แล้ว" : "เชื่อมต่อ Google Sheets แล้ว ยังไม่มีรายการวางบิล";
+      setNotice(message);
+      if (isRefresh) showToast(message);
     } catch (err) {
       const message = getErrorMessage(err);
       setLoadError(message);
       setNotice(`โหลดข้อมูลไม่สำเร็จ: ${message}`);
+      showToast(`โหลดข้อมูลไม่สำเร็จ: ${message}`, "error");
     } finally {
       setInitialLoading(false);
       setBusy(false);
@@ -156,9 +174,13 @@ export default function App() {
     try {
       const result = await api.saveBilling(nextBilling);
       upsertLocalBilling(result.billing);
-      setNotice("บันทึกรายการวางบิลลง Google Sheets แล้ว");
+      const message = "บันทึกรายการวางบิลลง Google Sheets แล้ว";
+      setNotice(message);
+      showToast(message);
     } catch (err) {
-      setNotice(`บันทึกรายการไม่สำเร็จ: ${getErrorMessage(err)}`);
+      const message = `บันทึกรายการไม่สำเร็จ: ${getErrorMessage(err)}`;
+      setNotice(message);
+      showToast(message, "error");
     } finally {
       setBusy(false);
     }
@@ -173,9 +195,13 @@ export default function App() {
     try {
       const result = await api.saveCustomer(nextCustomer);
       upsertLocalCustomer(result.customer);
-      setNotice("บันทึกข้อมูลลูกค้าลง Google Sheets แล้ว");
+      const message = "บันทึกข้อมูลลูกค้าลง Google Sheets แล้ว";
+      setNotice(message);
+      showToast(message);
     } catch (err) {
-      setNotice(`บันทึกข้อมูลลูกค้าไม่สำเร็จ: ${getErrorMessage(err)}`);
+      const message = `บันทึกข้อมูลลูกค้าไม่สำเร็จ: ${getErrorMessage(err)}`;
+      setNotice(message);
+      showToast(message, "error");
     } finally {
       setBusy(false);
     }
@@ -198,14 +224,21 @@ export default function App() {
   }
 
   async function runAction(action: BillingAction) {
-    if (!selectedBilling.id && action !== "paid") return;
+    if (!selectedBilling.id) {
+      showToast("กรุณาเลือกรายการวางบิลก่อนทำรายการ", "error");
+      return;
+    }
     setBusy(true);
     try {
       const result = await api.runBillingAction(selectedBilling.id, action);
       upsertLocalBilling(result.billing);
-      setNotice(result.message ?? "ทำรายการสำเร็จ");
+      const message = result.message ?? "ทำรายการสำเร็จ";
+      setNotice(message);
+      showToast(message);
     } catch (err) {
-      setNotice(`ทำรายการไม่สำเร็จ: ${getErrorMessage(err)}`);
+      const message = `ทำรายการไม่สำเร็จ: ${getErrorMessage(err)}`;
+      setNotice(message);
+      showToast(message, "error");
     } finally {
       setBusy(false);
     }
@@ -403,7 +436,27 @@ export default function App() {
           </aside>
         )}
       </section>
+      {toast ? <ToastMessage toast={toast} onClose={() => setToast(null)} /> : null}
     </main>
+  );
+}
+
+function ToastMessage({ toast, onClose }: { toast: ToastState; onClose: () => void }) {
+  const isSuccess = toast.type === "success";
+
+  return (
+    <div className="toast-region" aria-live="polite" aria-atomic="true">
+      <div className={`toast ${toast.type}`} role={isSuccess ? "status" : "alert"}>
+        <div className="toast__icon">{isSuccess ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}</div>
+        <div className="toast__content">
+          <strong>{isSuccess ? "สำเร็จ" : "ไม่สำเร็จ"}</strong>
+          <p>{toast.message}</p>
+        </div>
+        <button className="toast__close" type="button" onClick={onClose} aria-label="ปิดการแจ้งเตือน">
+          <X size={18} />
+        </button>
+      </div>
+    </div>
   );
 }
 
