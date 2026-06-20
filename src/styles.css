@@ -318,6 +318,24 @@ a:hover {
   max-width: 760px;
 }
 
+.customer-switcher {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.customer-switcher label {
+  min-width: 0;
+}
+
+.customer-switcher .button {
+  white-space: nowrap;
+}
+
 .preview-panel {
   width: min(420px, 100%);
 }
@@ -1181,6 +1199,15 @@ td[data-tone="paid"] {
   }
 
   .form-heading .button {
+    width: 100%;
+  }
+
+  .customer-switcher {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .customer-switcher .button {
     width: 100%;
   }
 

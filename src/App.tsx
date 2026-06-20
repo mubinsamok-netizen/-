@@ -187,6 +187,7 @@ export default function App() {
   }
 
   async function saveCustomer() {
+    const isNewCustomer = !customerDraft.id;
     const nextCustomer = {
       ...customerDraft,
       id: customerDraft.id || createId("CUS")
@@ -195,7 +196,9 @@ export default function App() {
     try {
       const result = await api.saveCustomer(nextCustomer);
       upsertLocalCustomer(result.customer);
-      const message = "บันทึกข้อมูลลูกค้าลง Google Sheets แล้ว";
+      const message = isNewCustomer
+        ? "เพิ่มลูกค้าใหม่ลง Google Sheets แล้ว"
+        : "อัปเดตข้อมูลลูกค้าใน Google Sheets แล้ว";
       setNotice(message);
       showToast(message);
     } catch (err) {
@@ -221,6 +224,20 @@ export default function App() {
       const exists = items.some((item) => item.id === nextCustomer.id);
       return exists ? items.map((item) => (item.id === nextCustomer.id ? nextCustomer : item)) : [nextCustomer, ...items];
     });
+    setCustomerDraft(nextCustomer);
+  }
+
+  function selectCustomer(customerId: string) {
+    if (!customerId) {
+      startNewCustomer();
+      return;
+    }
+    const customer = customers.find((item) => item.id === customerId);
+    if (customer) setCustomerDraft(customer);
+  }
+
+  function startNewCustomer() {
+    setCustomerDraft({ ...blankCustomer });
   }
 
   async function runAction(action: BillingAction) {
@@ -426,7 +443,24 @@ export default function App() {
 
         {activeTab === "customer" && (
           <aside className="side-panel form-panel">
-            <CustomerForm customer={customerDraft} onChange={setCustomerDraft} onSave={saveCustomer} />
+            <div className="customer-switcher">
+              <label>
+                ลูกค้าในระบบ ({customers.length} ราย)
+                <select value={customerDraft.id} onChange={(event) => selectCustomer(event.target.value)}>
+                  <option value="">เพิ่มลูกค้าใหม่</option>
+                  {customers.map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name} {customer.contactName ? `- ${customer.contactName}` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button className="button ghost" type="button" onClick={startNewCustomer}>
+                <Plus size={18} />
+                เพิ่มลูกค้าใหม่
+              </button>
+            </div>
+            <CustomerForm customer={customerDraft} onChange={setCustomerDraft} onSave={saveCustomer} busy={busy} />
           </aside>
         )}
 
@@ -639,19 +673,24 @@ function getLineHistoryLabel(text: string) {
 function CustomerForm({
   customer,
   onChange,
-  onSave
+  onSave,
+  busy
 }: {
   customer: Customer;
   onChange: (customer: Customer) => void;
   onSave: () => void;
+  busy: boolean;
 }) {
   return (
     <form className="form-stack" onSubmit={(event) => event.preventDefault()}>
       <div className="form-heading">
-        <h2>ข้อมูลลูกค้า</h2>
-        <button className="button primary" type="button" onClick={onSave}>
-          <Save size={18} />
-          บันทึก
+        <div>
+          <h2>{customer.id ? "แก้ไขข้อมูลลูกค้า" : "เพิ่มลูกค้าใหม่"}</h2>
+          <p>{customer.id ? `รหัสลูกค้า ${customer.id}` : "กรอกข้อมูลเพื่อสร้างลูกค้ารายใหม่"}</p>
+        </div>
+        <button className="button primary" type="button" onClick={onSave} disabled={busy || !customer.name.trim()}>
+          {busy ? <Loader2 className="spin" size={18} /> : <Save size={18} />}
+          {customer.id ? "บันทึกการแก้ไข" : "เพิ่มลูกค้า"}
         </button>
       </div>
       <label>
