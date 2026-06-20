@@ -26,6 +26,8 @@
 body {
   margin: 0;
   min-width: 320px;
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
   background: var(--bg);
   color: var(--text);
 }
@@ -36,6 +38,13 @@ select,
 textarea {
   font: inherit;
   letter-spacing: 0;
+}
+
+button,
+a,
+select {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 a {
@@ -281,6 +290,45 @@ a:hover {
 
 .table-wrap {
   overflow-x: auto;
+}
+
+.data-state {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  min-height: 280px;
+  padding: 32px 20px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.data-state__icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin-bottom: 4px;
+  border-radius: 8px;
+  background: #eef8f6;
+  color: var(--mint-strong);
+}
+
+.data-state strong {
+  color: var(--text);
+  font-size: 16px;
+}
+
+.data-state p {
+  max-width: 440px;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.data-state .button {
+  margin-top: 8px;
 }
 
 table {
@@ -918,6 +966,8 @@ td[data-tone="paid"] {
     border-radius: 8px;
     background: var(--surface);
     box-shadow: 0 10px 22px rgba(49, 82, 87, 0.06);
+    content-visibility: auto;
+    contain-intrinsic-size: 240px;
   }
 
   tbody tr:hover,
@@ -933,6 +983,7 @@ td[data-tone="paid"] {
     padding: 0;
     border-bottom: 0;
     white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   td::before {
@@ -951,7 +1002,6 @@ td[data-tone="paid"] {
 }
 
 @media (max-width: 560px) {
-  .summary-grid,
   .two-columns,
   .action-bar {
     grid-template-columns: 1fr;
@@ -971,12 +1021,18 @@ td[data-tone="paid"] {
   }
 
   .summary-card {
-    min-height: 74px;
-    padding: 14px;
+    min-height: 72px;
+    gap: 10px;
+    padding: 12px;
   }
 
   .summary-card strong {
-    font-size: 26px;
+    font-size: 24px;
+  }
+
+  .summary-card__icon {
+    width: 36px;
+    height: 36px;
   }
 
   .topbar h1 {
@@ -985,9 +1041,7 @@ td[data-tone="paid"] {
 
   .workspace-tabs {
     grid-template-columns: 1fr 1fr;
-    position: sticky;
-    top: 0;
-    z-index: 10;
+    position: static;
   }
 
   .workspace-tabs button {
@@ -1000,6 +1054,11 @@ td[data-tone="paid"] {
   .filters,
   .side-panel {
     padding: 12px;
+  }
+
+  .data-state {
+    min-height: 220px;
+    padding: 24px 16px;
   }
 
   .button {

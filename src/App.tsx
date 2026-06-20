@@ -13,7 +13,6 @@ import {
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { FlexPreview } from "./components/FlexPreview";
 import { StatusBadge } from "./components/StatusBadge";
-import { sampleBillings, sampleCustomers } from "./data/sampleData";
 import { api } from "./lib/api";
 import { createId, formatBaht, formatDate, getDueTone, statuses } from "./lib/format";
 import type { Billing, BillingAction, BillingStatus, Customer } from "./types";
@@ -50,32 +49,39 @@ function createBlankBilling(customer?: Customer): Billing {
 }
 
 export default function App() {
-  const [billings, setBillings] = useState<Billing[]>(sampleBillings);
-  const [customers, setCustomers] = useState<Customer[]>(sampleCustomers);
-  const [selectedBillingId, setSelectedBillingId] = useState(sampleBillings[0]?.id ?? "");
-  const [billingDraft, setBillingDraft] = useState<Billing>(sampleBillings[0]);
-  const [customerDraft, setCustomerDraft] = useState<Customer>(sampleCustomers[0]);
+  const [billings, setBillings] = useState<Billing[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [selectedBillingId, setSelectedBillingId] = useState("");
+  const [billingDraft, setBillingDraft] = useState<Billing>(() => createBlankBilling());
+  const [customerDraft, setCustomerDraft] = useState<Customer>(blankCustomer);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<BillingStatus | "ทั้งหมด">("ทั้งหมด");
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("list");
-  const [notice, setNotice] = useState("กำลังใช้ข้อมูลตัวอย่าง หากเปิดผ่าน Netlify Dev และตั้งค่า env แล้ว ระบบจะเชื่อม Google Sheets อัตโนมัติ");
+  const [notice, setNotice] = useState("กำลังโหลดข้อมูลจาก Google Sheets");
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [busy, setBusy] = useState(false);
 
   async function loadData() {
     setBusy(true);
+    setLoadError("");
     try {
       const [billingResult, customerResult] = await Promise.all([api.getBillings(), api.getCustomers()]);
-      const nextBillings = billingResult.billings.length ? billingResult.billings : sampleBillings;
-      const nextCustomers = customerResult.customers.length ? customerResult.customers : sampleCustomers;
+      const nextBillings = billingResult.billings;
+      const nextCustomers = customerResult.customers;
       setBillings(nextBillings);
       setCustomers(nextCustomers);
-      setSelectedBillingId(nextBillings[0]?.id ?? "");
-      setBillingDraft(nextBillings[0] ?? createBlankBilling(nextCustomers[0]));
+      const nextSelected = nextBillings.find((billing) => billing.id === selectedBillingId) ?? nextBillings[0];
+      setSelectedBillingId(nextSelected?.id ?? "");
+      setBillingDraft(nextSelected ?? createBlankBilling(nextCustomers[0]));
       setCustomerDraft(nextCustomers[0] ?? blankCustomer);
-      setNotice("เชื่อมต่อ Google Sheets แล้ว ข้อมูลบนหน้านี้มาจากฐานข้อมูลจริง");
-    } catch {
-      setNotice("ยังไม่ได้เชื่อม API หรือ env ไม่ครบ จึงแสดงข้อมูลตัวอย่างให้ทดลอง workflow ก่อน");
+      setNotice(nextBillings.length ? "อัปเดตข้อมูลจาก Google Sheets แล้ว" : "เชื่อมต่อ Google Sheets แล้ว ยังไม่มีรายการวางบิล");
+    } catch (err) {
+      const message = getErrorMessage(err);
+      setLoadError(message);
+      setNotice(`โหลดข้อมูลไม่สำเร็จ: ${message}`);
     } finally {
+      setInitialLoading(false);
       setBusy(false);
     }
   }
@@ -151,9 +157,8 @@ export default function App() {
       const result = await api.saveBilling(nextBilling);
       upsertLocalBilling(result.billing);
       setNotice("บันทึกรายการวางบิลลง Google Sheets แล้ว");
-    } catch {
-      upsertLocalBilling(nextBilling);
-      setNotice("บันทึกในหน้าจอทดลองแล้ว เมื่อเชื่อม env ครบจะบันทึกลง Google Sheets จริง");
+    } catch (err) {
+      setNotice(`บันทึกรายการไม่สำเร็จ: ${getErrorMessage(err)}`);
     } finally {
       setBusy(false);
     }
@@ -169,9 +174,8 @@ export default function App() {
       const result = await api.saveCustomer(nextCustomer);
       upsertLocalCustomer(result.customer);
       setNotice("บันทึกข้อมูลลูกค้าลง Google Sheets แล้ว");
-    } catch {
-      upsertLocalCustomer(nextCustomer);
-      setNotice("บันทึกข้อมูลลูกค้าในหน้าจอทดลองแล้ว");
+    } catch (err) {
+      setNotice(`บันทึกข้อมูลลูกค้าไม่สำเร็จ: ${getErrorMessage(err)}`);
     } finally {
       setBusy(false);
     }
@@ -200,18 +204,8 @@ export default function App() {
       const result = await api.runBillingAction(selectedBilling.id, action);
       upsertLocalBilling(result.billing);
       setNotice(result.message ?? "ทำรายการสำเร็จ");
-    } catch {
-      const nextStatus: BillingStatus =
-        action === "paid" ? "ชำระแล้ว" : action === "reminder" ? "เตือนแล้ว" : "รอชำระ";
-      const nextBilling: Billing = {
-        ...selectedBilling,
-        status: nextStatus,
-        lastSentAt: action === "paid" ? selectedBilling.lastSentAt : new Date().toISOString(),
-        paidAt: action === "paid" ? new Date().toISOString() : selectedBilling.paidAt,
-        reminderCount: action === "reminder" ? selectedBilling.reminderCount + 1 : selectedBilling.reminderCount
-      };
-      upsertLocalBilling(nextBilling);
-      setNotice("อัปเดตสถานะในหน้าจอทดลองแล้ว API จะส่ง LINE จริงเมื่อเปิดผ่าน Netlify และตั้งค่า env ครบ");
+    } catch (err) {
+      setNotice(`ทำรายการไม่สำเร็จ: ${getErrorMessage(err)}`);
     } finally {
       setBusy(false);
     }
@@ -235,10 +229,10 @@ export default function App() {
       </section>
 
       <section className="summary-grid" aria-label="สรุปสถานะ">
-        <SummaryCard icon={<FileText size={20} />} label="รอส่ง" value={summary["รอส่ง"]} tone="mint" />
-        <SummaryCard icon={<LineChart size={20} />} label="รอชำระ" value={summary["รอชำระ"]} tone="blue" />
-        <SummaryCard icon={<Bell size={20} />} label="เตือนแล้ว" value={summary["เตือนแล้ว"]} tone="amber" />
-        <SummaryCard icon={<CheckCircle2 size={20} />} label="ชำระแล้ว" value={summary["ชำระแล้ว"]} tone="green" />
+        <SummaryCard icon={<FileText size={20} />} label="รอส่ง" value={initialLoading ? "–" : summary["รอส่ง"]} tone="mint" />
+        <SummaryCard icon={<LineChart size={20} />} label="รอชำระ" value={initialLoading ? "–" : summary["รอชำระ"]} tone="blue" />
+        <SummaryCard icon={<Bell size={20} />} label="เตือนแล้ว" value={initialLoading ? "–" : summary["เตือนแล้ว"]} tone="amber" />
+        <SummaryCard icon={<CheckCircle2 size={20} />} label="ชำระแล้ว" value={initialLoading ? "–" : summary["ชำระแล้ว"]} tone="green" />
       </section>
 
       <section className="workspace-tabs" role="tablist" aria-label="เมนูพื้นที่ทำงาน">
@@ -262,11 +256,12 @@ export default function App() {
             <div className="panel-toolbar">
               <div>
                 <h2>รายการวางบิล</h2>
-                <p>{filteredBillings.length} รายการที่ตรงเงื่อนไข</p>
+                <p>{initialLoading ? "กำลังโหลดรายการ..." : `${filteredBillings.length} รายการที่ตรงเงื่อนไข`}</p>
               </div>
               <button
                 className="button primary"
                 type="button"
+                disabled={initialLoading}
                 onClick={() => {
                   setBillingDraft(createBlankBilling(customers[0]));
                   setActiveTab("billing");
@@ -277,16 +272,21 @@ export default function App() {
               </button>
             </div>
 
-            <div className="filters">
+            <div className="filters" aria-busy={initialLoading}>
               <label className="searchbox">
                 <Search size={18} />
                 <input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="ค้นหาชื่อลูกค้า เลขที่บิล หรือหมายเหตุ"
+                  disabled={initialLoading}
                 />
               </label>
-              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as BillingStatus | "ทั้งหมด")}>
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value as BillingStatus | "ทั้งหมด")}
+                disabled={initialLoading}
+              >
                 <option value="ทั้งหมด">ทุกสถานะ</option>
                 {statuses.map((status) => (
                   <option key={status} value={status}>
@@ -296,8 +296,24 @@ export default function App() {
               </select>
             </div>
 
-            <div className="table-wrap">
-              <table>
+            {initialLoading ? (
+              <DataState icon={<Loader2 className="spin" size={22} />} title="กำลังโหลดข้อมูล" detail="กำลังอ่านรายการจาก Google Sheets" />
+            ) : loadError && !billings.length ? (
+              <DataState
+                icon={<RefreshCw size={22} />}
+                title="โหลดข้อมูลไม่สำเร็จ"
+                detail={loadError}
+                action={<button className="button ghost" type="button" onClick={loadData}>ลองใหม่</button>}
+              />
+            ) : !filteredBillings.length ? (
+              <DataState
+                icon={<FileText size={22} />}
+                title={billings.length ? "ไม่พบรายการที่ค้นหา" : "ยังไม่มีรายการวางบิล"}
+                detail={billings.length ? "ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ" : "กดเพิ่มรายการเพื่อสร้างบิลแรก"}
+              />
+            ) : (
+              <div className="table-wrap">
+                <table>
                 <thead>
                   <tr>
                     <th>เลขที่</th>
@@ -340,8 +356,9 @@ export default function App() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
@@ -390,6 +407,37 @@ export default function App() {
   );
 }
 
+function DataState({
+  icon,
+  title,
+  detail,
+  action
+}: {
+  icon: ReactNode;
+  title: string;
+  detail: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="data-state">
+      <div className="data-state__icon">{icon}</div>
+      <strong>{title}</strong>
+      <p>{detail}</p>
+      {action}
+    </div>
+  );
+}
+
+function getErrorMessage(err: unknown) {
+  if (!(err instanceof Error)) return "เกิดข้อผิดพลาด กรุณาลองใหม่";
+  try {
+    const parsed = JSON.parse(err.message) as { error?: string };
+    return parsed.error || err.message;
+  } catch {
+    return err.message;
+  }
+}
+
 function SummaryCard({
   icon,
   label,
@@ -398,7 +446,7 @@ function SummaryCard({
 }: {
   icon: ReactNode;
   label: string;
-  value: number;
+  value: number | string;
   tone: "mint" | "blue" | "amber" | "green";
 }) {
   return (

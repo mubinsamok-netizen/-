@@ -56,7 +56,7 @@ export function FlexPreview({ billing }: { billing: Billing }) {
   return (
     <section className={`flex-preview flex-preview--${theme.tone}`} aria-label="ตัวอย่าง LINE Flex Message">
       <div className="flex-preview__hero">
-        <img src={heroImages[theme.tone]} alt="" />
+        <img src={heroImages[theme.tone]} alt="" loading="lazy" decoding="async" fetchPriority="low" />
         <span>{theme.badge}</span>
       </div>
 
