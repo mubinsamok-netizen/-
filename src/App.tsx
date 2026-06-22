@@ -584,9 +584,13 @@ function BillingForm({
         <label>
           ยอดเงิน
           <input
+            className="amount-input"
             type="number"
             min="0"
-            value={billing.amount}
+            step="0.01"
+            inputMode="decimal"
+            placeholder="0.00"
+            value={billing.amount || ""}
             onChange={(event) => onChange({ ...billing, amount: Number(event.target.value) })}
           />
         </label>
