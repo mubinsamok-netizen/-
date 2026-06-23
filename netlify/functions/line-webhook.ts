@@ -7,9 +7,13 @@ import type { Billing } from "./_shared/types";
 type LineWebhookPayload = {
   events?: Array<{
     type?: string;
+    replyToken?: string;
     message?: {
       type?: string;
       text?: string;
+    };
+    postback?: {
+      data?: string;
     };
   }>;
 };
@@ -30,8 +34,7 @@ export default async (req: Request, _context: Context) => {
   const results: Array<{ billingId?: string; action?: string; ok: boolean; error?: string }> = [];
 
   for (const event of payload.events ?? []) {
-    if (event.type !== "message" || event.message?.type !== "text" || !event.message.text) continue;
-    const result = await handleTextMessage(event.message.text);
+    const result = await handleLineEvent(event);
     if (result) results.push(result);
   }
 
@@ -43,6 +46,20 @@ export const config: Config = {
   method: ["POST"]
 };
 
+type WebhookEvent = NonNullable<LineWebhookPayload["events"]>[number];
+
+async function handleLineEvent(event: WebhookEvent) {
+  if (event.type === "message" && event.message?.type === "text" && event.message.text) {
+    return handleTextMessage(event.message.text);
+  }
+
+  if (event.type === "postback" && event.postback?.data) {
+    return handlePostback(event.postback.data, event.replyToken);
+  }
+
+  return null;
+}
+
 async function handleTextMessage(text: string) {
   const billingId = extractBillingId(text);
   if (!billingId) return null;
@@ -53,6 +70,24 @@ async function handleTextMessage(text: string) {
   const action = detectCustomerAction(text);
   const updated = updateBillingFromCustomerMessage(billing, text, action);
   await saveBilling(updated);
+
+  return { billingId, action, ok: true };
+}
+
+async function handlePostback(data: string, replyToken?: string) {
+  const params = new URLSearchParams(data);
+  const billingId = params.get("billingId")?.toUpperCase();
+  const action = params.get("action") || "comment";
+  if (!billingId) return null;
+
+  const billing = await getBilling(billingId);
+  if (!billing) return { billingId, action, ok: false, error: "ไม่พบรายการวางบิล" };
+
+  const text = createPostbackComment(action, billingId);
+  const updated = updateBillingFromCustomerMessage(billing, text, action);
+  await saveBilling(updated);
+
+  if (replyToken) await replyToCustomer(replyToken, createPostbackReply(action, billingId));
 
   return { billingId, action, ok: true };
 }
@@ -82,6 +117,46 @@ function detectCustomerAction(text: string) {
     return "issue";
   }
   return "comment";
+}
+
+function createPostbackComment(action: string, billingId: string) {
+  if (action === "payment") return `แจ้งชำระเงิน ${billingId}`;
+  if (action === "issue") return `สอบถามเรื่องบิล ${billingId}`;
+  return `ข้อความจากลูกค้า ${billingId}`;
+}
+
+function createPostbackReply(action: string, billingId: string) {
+  if (action === "payment") {
+    return `รับแจ้งชำระเงินสำหรับบิล ${billingId} แล้วค่ะ หากมีสลิปหรือรายละเอียดเพิ่มเติม สามารถส่งต่อในแชทนี้ได้เลยค่ะ`;
+  }
+
+  if (action === "issue") {
+    return `รับเรื่องสอบถามสำหรับบิล ${billingId} แล้วค่ะ สามารถพิมพ์รายละเอียดเพิ่มเติมต่อในแชทนี้ได้เลยค่ะ`;
+  }
+
+  return `รับข้อความสำหรับบิล ${billingId} แล้วค่ะ`;
+}
+
+async function replyToCustomer(replyToken: string, text: string) {
+  const token = Netlify.env.get("LINE_CHANNEL_ACCESS_TOKEN");
+  if (!token) return;
+
+  const response = await fetch("https://api.line.me/v2/bot/message/reply", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json; charset=utf-8"
+    },
+    body: JSON.stringify({
+      replyToken,
+      messages: [{ type: "text", text }]
+    })
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    console.warn(`ตอบกลับ LINE ไม่สำเร็จ: ${body}`);
+  }
 }
 
 function extractBillingId(text: string) {
