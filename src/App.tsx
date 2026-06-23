@@ -1,6 +1,7 @@
 import {
   AlertCircle,
   Bell,
+  ChevronDown,
   CheckCircle2,
   FileText,
   LineChart,
@@ -10,6 +11,7 @@ import {
   RefreshCw,
   Save,
   Search,
+  Users,
   X
 } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -444,17 +446,24 @@ export default function App() {
         {activeTab === "customer" && (
           <aside className="side-panel form-panel">
             <div className="customer-switcher">
-              <label>
-                ลูกค้าในระบบ ({customers.length} ราย)
-                <select value={customerDraft.id} onChange={(event) => selectCustomer(event.target.value)}>
-                  <option value="">เพิ่มลูกค้าใหม่</option>
-                  {customers.map((customer) => (
+              <div className="customer-picker">
+                <div className="customer-picker__label">
+                  <span>ลูกค้าในระบบ</span>
+                  <strong>{customers.length} ราย</strong>
+                </div>
+                <label className="customer-picker__select">
+                  <Users size={18} aria-hidden="true" />
+                  <select value={customerDraft.id} onChange={(event) => selectCustomer(event.target.value)}>
+                    <option value="">เพิ่มลูกค้าใหม่</option>
+                    {customers.map((customer) => (
                     <option key={customer.id} value={customer.id}>
                       {customer.name} {customer.contactName ? `- ${customer.contactName}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="customer-picker__chevron" size={18} aria-hidden="true" />
+                </label>
+              </div>
               <button className="button ghost" type="button" onClick={startNewCustomer}>
                 <Plus size={18} />
                 เพิ่มลูกค้าใหม่

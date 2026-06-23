@@ -321,19 +321,82 @@ a:hover {
 .customer-switcher {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 12px;
+  align-items: stretch;
+  gap: 14px;
   margin-bottom: 20px;
   padding-bottom: 20px;
   border-bottom: 1px solid var(--border);
 }
 
-.customer-switcher label {
+.customer-picker {
   min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.customer-picker__label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #52656b;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.customer-picker__label strong {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #edf8fe;
+  color: #1d6d93;
+  font-size: 12px;
+}
+
+.customer-picker__select {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 14px;
+  border: 1px solid #cfe1e3;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbfb 100%);
+  box-shadow: 0 12px 28px rgba(31, 60, 66, 0.08);
+  color: #567075;
+}
+
+.customer-picker__select select {
+  min-width: 0;
+  width: 100%;
+  height: 50px;
+  border: 0;
+  padding: 0;
+  appearance: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 800;
+  outline: 0;
+}
+
+.customer-picker__select:focus-within {
+  border-color: #40c7a5;
+  box-shadow: 0 0 0 4px rgba(64, 199, 165, 0.14), 0 14px 30px rgba(31, 60, 66, 0.1);
+}
+
+.customer-picker__chevron {
+  color: #6f858a;
+  pointer-events: none;
 }
 
 .customer-switcher .button {
   white-space: nowrap;
+  align-self: end;
 }
 
 .preview-panel {
@@ -1216,10 +1279,29 @@ td[data-tone="paid"] {
   .customer-switcher {
     grid-template-columns: 1fr;
     align-items: stretch;
+    gap: 12px;
+    margin-bottom: 18px;
+    padding-bottom: 18px;
+  }
+
+  .customer-picker__label {
+    font-size: 12px;
+  }
+
+  .customer-picker__select {
+    min-height: 56px;
+    padding: 0 12px;
+    border-radius: 13px;
+  }
+
+  .customer-picker__select select {
+    height: 54px;
+    font-size: 16px;
   }
 
   .customer-switcher .button {
     width: 100%;
+    align-self: stretch;
   }
 
   .flex-preview__content {
