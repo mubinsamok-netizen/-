@@ -57,6 +57,10 @@ export function createFlexMessage(billing: Billing, kind: MessageKind = "invoice
   const theme = getTheme(kind, overdue);
   const heroImage = getHeroImage(theme.heroTone);
   const footerButtons = createFooterButtons(billing, kind);
+  const detailRows = [
+    ...(kind === "paid" ? [] : [createDetailRow("ครบกำหนด", formatThaiDateShort(billing.dueDate))]),
+    createDetailRow("สถานะ", theme.status)
+  ];
 
   return {
     type: "flex",
@@ -114,8 +118,7 @@ export function createFlexMessage(billing: Billing, kind: MessageKind = "invoice
                   { type: "text", text: "ยอดชำระ", size: "xs", color: "#6B7B8C" },
                   { type: "text", text: `${formatAmount(billing.amount)} บาท`, size: "xxl", weight: "bold", color: theme.amountColor, wrap: true },
                   { type: "separator", margin: "md" },
-                  createDetailRow("ครบกำหนด", formatThaiDateShort(billing.dueDate)),
-                  createDetailRow("สถานะ", theme.status)
+                  ...detailRows
                 ]
               },
               { type: "text", text: theme.note, size: "xs", color: "#D8E3EE", wrap: true, lineSpacing: "5px", margin: "xs" }

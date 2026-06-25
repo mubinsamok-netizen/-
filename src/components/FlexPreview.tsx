@@ -72,10 +72,12 @@ export function FlexPreview({ billing }: { billing: Billing }) {
           <span>ยอดชำระ</span>
           <strong>{formatBaht(billing.amount)}</strong>
           <div className="flex-preview__divider" />
-          <div className="flex-preview__line">
-            <span>ครบกำหนด</span>
-            <b>{formatDate(billing.dueDate)}</b>
-          </div>
+          {!isPaid ? (
+            <div className="flex-preview__line">
+              <span>ครบกำหนด</span>
+              <b>{formatDate(billing.dueDate)}</b>
+            </div>
+          ) : null}
           <div className="flex-preview__line">
             <span>สถานะ</span>
             <b>{theme.status}</b>
